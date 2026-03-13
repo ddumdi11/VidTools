@@ -211,11 +211,18 @@ class GifCreatorTab(ttk.Frame):
                                     timeout=FFMPEG_TIMEOUT_SHORT, **SUBPROCESS_FLAGS)
             parts = result.stdout.strip().split(",")
 
+            width = 0
+            height = 0
+            duration = None
             if len(parts) >= 3:
                 width = int(parts[0])
                 height = int(parts[1])
-                duration = float(parts[2])
-            else:
+                try:
+                    duration = float(parts[2])
+                except (ValueError, TypeError):
+                    pass  # "N/A" o.ae. — Fallback auf format=duration
+
+            if duration is None:
                 # Fallback: nur Dauer ermitteln
                 cmd_dur = [
                     self._ffprobe, "-v", "error",
@@ -236,8 +243,6 @@ class GifCreatorTab(ttk.Frame):
                     raise RuntimeError(
                         f"FFprobe-Ausgabe nicht parsebar: '{raw}'. "
                         f"Kommando: {' '.join(cmd_dur)}, stderr: {result_dur.stderr[:200]}")
-                width = 0
-                height = 0
 
             # UI-Update im Hauptthread
             self.after(0, self._on_analysis_success, video_path, width, height, duration)
@@ -256,6 +261,9 @@ class GifCreatorTab(ttk.Frame):
 
     def _on_analysis_success(self, video_path: Path, width: int, height: int, duration: float):
         """UI-Update nach erfolgreicher Analyse (Hauptthread)."""
+        # Race-Guard: Wenn inzwischen ein anderes Video gewaehlt wurde, verwerfen
+        if self.video_path != video_path:
+            return
         self.video_width = width
         self.video_height = height
         self.video_duration = duration
@@ -290,18 +298,27 @@ class GifCreatorTab(ttk.Frame):
         if not self.video_path:
             return
 
-        # Parameter sammeln
+        # Parameter sammeln und validieren
         try:
             start = float(self.entry_start.get())
             end = float(self.entry_end.get())
-            duration = end - start
-
-            if duration <= 0:
-                self.status_var.set("Fehler: Ende muss nach Start liegen!")
-                return
-
         except ValueError:
             self.status_var.set("Fehler: Ungueltige Zeit-Werte!")
+            return
+
+        if start < 0:
+            self.status_var.set("Fehler: Start darf nicht negativ sein!")
+            return
+        if end < 0:
+            self.status_var.set("Fehler: Ende darf nicht negativ sein!")
+            return
+        if self.video_duration > 0 and end > self.video_duration:
+            self.status_var.set("Fehler: Ende liegt ausserhalb der Video-Dauer!")
+            return
+
+        duration = end - start
+        if duration <= 0:
+            self.status_var.set("Fehler: Ende muss nach Start liegen!")
             return
 
         width = int(self.combo_width.get())
