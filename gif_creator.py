@@ -6,6 +6,7 @@ Portiert von SimpleGifCreator (customtkinter -> tkinter).
 """
 
 import os
+import shutil
 import subprocess
 import threading
 from pathlib import Path
@@ -14,13 +15,29 @@ from typing import Optional
 import tkinter as tk
 from tkinter import ttk, filedialog
 
+from video_processor import SUBPROCESS_FLAGS, FFMPEG_TIMEOUT_SHORT, FFMPEG_TIMEOUT_LONG
+
 # Konstanten
 DEFAULT_WIDTH = 480
 DEFAULT_FPS = 10
-SUPPORTED_FORMATS = (".mp4", ".mov", ".avi", ".mkv", ".webm", ".gif")
 
 WIDTH_OPTIONS = ["320", "480", "640", "800", "1024"]
 FPS_OPTIONS = ["5", "8", "10", "12", "15", "20", "24", "30"]
+
+
+def _find_ffprobe() -> str:
+    """Findet ffprobe-Pfad im System."""
+    ffprobe = shutil.which('ffprobe')
+    return ffprobe if ffprobe else 'ffprobe'
+
+
+def _find_ffmpeg() -> str:
+    """Findet ffmpeg-Pfad im System, respektiert FFMPEG_PATH."""
+    ffmpeg_env = os.getenv("FFMPEG_PATH")
+    if ffmpeg_env and os.path.exists(ffmpeg_env):
+        return ffmpeg_env
+    ffmpeg = shutil.which('ffmpeg')
+    return ffmpeg if ffmpeg else 'ffmpeg'
 
 
 class GifCreatorTab(ttk.Frame):
@@ -34,6 +51,10 @@ class GifCreatorTab(ttk.Frame):
         self.video_duration: float = 0.0
         self.video_width: int = 0
         self.video_height: int = 0
+
+        # Resolved binary paths
+        self._ffprobe = _find_ffprobe()
+        self._ffmpeg = _find_ffmpeg()
 
         self._create_widgets()
 
@@ -147,69 +168,79 @@ class GifCreatorTab(ttk.Frame):
 
         if path:
             self.video_path = Path(path)
-            self._analyze_video()
+            self.status_var.set(f"Analysiere: {self.video_path.name}...")
+            # Analyse im Hintergrund-Thread, UI bleibt responsiv
+            thread = threading.Thread(target=self._analyze_video_thread,
+                                      args=(self.video_path,), daemon=True)
+            thread.start()
 
-    def _analyze_video(self):
-        """Analysiert das geladene Video mit FFprobe."""
-        if not self.video_path:
-            return
-
-        self.status_var.set(f"Analysiere: {self.video_path.name}...")
-        self.update()
-
+    def _analyze_video_thread(self, video_path: Path):
+        """Analysiert das geladene Video mit FFprobe (Hintergrund-Thread)."""
         try:
-            # FFprobe fuer Metadaten
             cmd = [
-                "ffprobe", "-v", "error",
+                self._ffprobe, "-v", "error",
                 "-select_streams", "v:0",
                 "-show_entries", "stream=width,height,duration",
                 "-of", "csv=p=0",
-                str(self.video_path)
+                str(video_path)
             ]
             result = subprocess.run(cmd, capture_output=True, text=True, check=True,
-                                    creationflags=subprocess.CREATE_NO_WINDOW if os.name == 'nt' else 0)
+                                    timeout=FFMPEG_TIMEOUT_SHORT, **SUBPROCESS_FLAGS)
             parts = result.stdout.strip().split(",")
 
             if len(parts) >= 3:
-                self.video_width = int(parts[0])
-                self.video_height = int(parts[1])
-                self.video_duration = float(parts[2])
+                width = int(parts[0])
+                height = int(parts[1])
+                duration = float(parts[2])
             else:
                 # Fallback: nur Dauer ermitteln
                 cmd_dur = [
-                    "ffprobe", "-v", "error",
+                    self._ffprobe, "-v", "error",
                     "-show_entries", "format=duration",
                     "-of", "csv=p=0",
-                    str(self.video_path)
+                    str(video_path)
                 ]
                 result_dur = subprocess.run(cmd_dur, capture_output=True, text=True,
-                                            creationflags=subprocess.CREATE_NO_WINDOW if os.name == 'nt' else 0)
-                self.video_duration = float(result_dur.stdout.strip())
-                self.video_width = 0
-                self.video_height = 0
+                                            timeout=FFMPEG_TIMEOUT_SHORT, **SUBPROCESS_FLAGS)
+                duration = float(result_dur.stdout.strip())
+                width = 0
+                height = 0
 
-            # UI aktualisieren
-            self.lbl_filename.config(text=self.video_path.name, foreground="black")
-            self.lbl_video_info.config(
-                text=f"Aufloesung: {self.video_width}x{self.video_height} | "
-                     f"Dauer: {self.video_duration:.1f}s",
-                foreground="black"
-            )
+            # UI-Update im Hauptthread
+            self.after(0, self._on_analysis_success, video_path, width, height, duration)
 
-            # Ende-Zeit auf Video-Dauer setzen (max 10s fuer GIF)
-            default_end = min(self.video_duration, 10.0)
-            self.entry_end.delete(0, "end")
-            self.entry_end.insert(0, f"{default_end:.1f}")
-            self._update_duration_label()
-
-            # Button aktivieren
-            self.btn_create.config(state="normal")
-            self.status_var.set(f"Video geladen: {self.video_path.name}")
-
+        except subprocess.TimeoutExpired:
+            self.after(0, lambda: self.status_var.set(
+                f"Fehler: FFprobe-Timeout nach {FFMPEG_TIMEOUT_SHORT}s"))
         except subprocess.CalledProcessError as e:
-            self.status_var.set(f"Fehler: FFprobe fehlgeschlagen - {e}")
+            error_msg = str(e)
+            self.after(0, lambda msg=error_msg: self.status_var.set(
+                f"Fehler: FFprobe fehlgeschlagen - {msg}"))
         except Exception as e:
-            self.status_var.set(f"Fehler beim Analysieren: {e}")
+            error_msg = str(e)
+            self.after(0, lambda msg=error_msg: self.status_var.set(
+                f"Fehler beim Analysieren: {msg}"))
+
+    def _on_analysis_success(self, video_path: Path, width: int, height: int, duration: float):
+        """UI-Update nach erfolgreicher Analyse (Hauptthread)."""
+        self.video_width = width
+        self.video_height = height
+        self.video_duration = duration
+
+        self.lbl_filename.config(text=video_path.name, foreground="black")
+        self.lbl_video_info.config(
+            text=f"Aufloesung: {width}x{height} | Dauer: {duration:.1f}s",
+            foreground="black"
+        )
+
+        # Ende-Zeit auf Video-Dauer setzen (max 10s fuer GIF)
+        default_end = min(duration, 10.0)
+        self.entry_end.delete(0, "end")
+        self.entry_end.insert(0, f"{default_end:.1f}")
+        self._update_duration_label()
+
+        self.btn_create.config(state="normal")
+        self.status_var.set(f"Video geladen: {video_path.name}")
 
     def _update_duration_label(self):
         """Aktualisiert die Dauer-Anzeige."""
@@ -242,9 +273,11 @@ class GifCreatorTab(ttk.Frame):
 
         width = int(self.combo_width.get())
         fps = int(self.combo_fps.get())
+        loop = self.var_loop.get()
+        video_path = self.video_path
 
         # Output-Pfad
-        output_path = self.video_path.with_stem(f"{self.video_path.stem}_gif").with_suffix(".gif")
+        output_path = video_path.with_stem(f"{video_path.stem}_gif").with_suffix(".gif")
 
         # In separatem Thread ausfuehren
         self.btn_create.config(state="disabled")
@@ -252,13 +285,14 @@ class GifCreatorTab(ttk.Frame):
 
         thread = threading.Thread(
             target=self._run_ffmpeg,
-            args=(start, duration, width, fps, output_path),
+            args=(start, duration, width, fps, output_path, loop, video_path),
             daemon=True
         )
         thread.start()
 
-    def _run_ffmpeg(self, start: float, duration: float, width: int, fps: int, output_path: Path):
-        """Fuehrt FFmpeg aus (in separatem Thread)."""
+    def _run_ffmpeg(self, start: float, duration: float, width: int, fps: int,
+                    output_path: Path, loop: bool, video_path: Path):
+        """Fuehrt FFmpeg aus (in separatem Thread). Alle Werte als Parameter, kein tkinter-Zugriff."""
         try:
             self.after(0, lambda: self.status_var.set("Erstelle GIF..."))
             self.after(0, lambda: self.progress_bar.configure(value=20))
@@ -267,19 +301,19 @@ class GifCreatorTab(ttk.Frame):
             vf_filter = f"fps={fps},scale={width}:-1:flags=lanczos,split[s0][s1];[s0]palettegen[p];[s1][p]paletteuse"
 
             cmd = [
-                "ffmpeg", "-y",
+                self._ffmpeg, "-y",
                 "-ss", str(start),
                 "-t", str(duration),
-                "-i", str(self.video_path),
+                "-i", str(video_path),
                 "-vf", vf_filter,
-                "-loop", "0" if self.var_loop.get() else "-1",
+                "-loop", "0" if loop else "-1",
                 str(output_path)
             ]
 
             self.after(0, lambda: self.progress_bar.configure(value=50))
 
             result = subprocess.run(cmd, capture_output=True, text=True,
-                                    creationflags=subprocess.CREATE_NO_WINDOW if os.name == 'nt' else 0)
+                                    timeout=FFMPEG_TIMEOUT_LONG, **SUBPROCESS_FLAGS)
 
             self.after(0, lambda: self.progress_bar.configure(value=100))
 
@@ -291,12 +325,16 @@ class GifCreatorTab(ttk.Frame):
                 ))
             else:
                 error_msg = result.stderr[:200] if result.stderr else "Unbekannter Fehler"
-                self.after(0, lambda: self.status_var.set(
-                    f"FFmpeg-Fehler: {error_msg}"
+                self.after(0, lambda msg=error_msg: self.status_var.set(
+                    f"FFmpeg-Fehler: {msg}"
                 ))
 
+        except subprocess.TimeoutExpired:
+            self.after(0, lambda: self.status_var.set(
+                f"Fehler: FFmpeg-Timeout nach {FFMPEG_TIMEOUT_LONG}s"))
         except Exception as e:
-            self.after(0, lambda: self.status_var.set(f"Fehler: {e}"))
+            error_msg = str(e)
+            self.after(0, lambda msg=error_msg: self.status_var.set(f"Fehler: {msg}"))
 
         finally:
             self.after(0, lambda: self.btn_create.config(state="normal"))

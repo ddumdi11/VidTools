@@ -77,7 +77,7 @@ Die Anwendung besteht aus zwei Tabs: **Video-Verarbeitung** und **GIF-Erstellung
 
 ### Tab 2: GIF-Erstellung
 
-1. **Video laden** – Datei auswaehlen, wird automatisch analysiert
+1. **Video laden** – Datei auswaehlen; die Analyse startet automatisch
 2. **Einstellungen** waehlen: Breite, FPS, Endlos-Loop
 3. **Trimmen**: Start- und Endzeit in Sekunden angeben
 4. **GIF erstellen** klicken – Palette-optimiertes GIF wird erstellt
