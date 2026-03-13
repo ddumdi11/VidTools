@@ -15,7 +15,7 @@ from typing import Optional
 import tkinter as tk
 from tkinter import ttk, filedialog
 
-from video_processor import SUBPROCESS_FLAGS, FFMPEG_TIMEOUT_SHORT, FFMPEG_TIMEOUT_LONG
+from video_processor import VideoProcessor, SUBPROCESS_FLAGS, FFMPEG_TIMEOUT_SHORT, FFMPEG_TIMEOUT_LONG
 
 # Konstanten
 DEFAULT_WIDTH = 480
@@ -25,19 +25,41 @@ WIDTH_OPTIONS = ["320", "480", "640", "800", "1024"]
 FPS_OPTIONS = ["5", "8", "10", "12", "15", "20", "24", "30"]
 
 
-def _find_ffprobe() -> str:
-    """Findet ffprobe-Pfad im System."""
-    ffprobe = shutil.which('ffprobe')
-    return ffprobe if ffprobe else 'ffprobe'
+def _resolve_ffprobe(ffmpeg_path: str) -> str:
+    """Leitet ffprobe-Pfad aus dem ffmpeg-Pfad ab, respektiert FFMPEG_PATH.
 
-
-def _find_ffmpeg() -> str:
-    """Findet ffmpeg-Pfad im System, respektiert FFMPEG_PATH."""
+    Strategie: Wenn FFMPEG_PATH gesetzt ist, ffprobe im selben Verzeichnis suchen.
+    Sonst shutil.which, sonst Fallback 'ffprobe'.
+    """
     ffmpeg_env = os.getenv("FFMPEG_PATH")
-    if ffmpeg_env and os.path.exists(ffmpeg_env):
-        return ffmpeg_env
-    ffmpeg = shutil.which('ffmpeg')
-    return ffmpeg if ffmpeg else 'ffmpeg'
+    if ffmpeg_env:
+        env_path = Path(ffmpeg_env)
+        # FFMPEG_PATH zeigt auf Verzeichnis
+        if env_path.is_dir():
+            candidate = env_path / "ffprobe"
+            if candidate.exists():
+                return str(candidate)
+            candidate = env_path / "ffprobe.exe"
+            if candidate.exists():
+                return str(candidate)
+        # FFMPEG_PATH zeigt auf ffmpeg-Binary -> ffprobe im selben Ordner
+        elif env_path.is_file():
+            parent = env_path.parent
+            for name in ("ffprobe", "ffprobe.exe"):
+                candidate = parent / name
+                if candidate.exists():
+                    return str(candidate)
+
+    # Aus aufgeloestem ffmpeg-Pfad ableiten
+    ffmpeg_dir = Path(ffmpeg_path).parent
+    for name in ("ffprobe", "ffprobe.exe"):
+        candidate = ffmpeg_dir / name
+        if candidate.exists():
+            return str(candidate)
+
+    # Fallback: shutil.which
+    found = shutil.which('ffprobe')
+    return found if found else 'ffprobe'
 
 
 class GifCreatorTab(ttk.Frame):
@@ -52,9 +74,10 @@ class GifCreatorTab(ttk.Frame):
         self.video_width: int = 0
         self.video_height: int = 0
 
-        # Resolved binary paths
-        self._ffprobe = _find_ffprobe()
-        self._ffmpeg = _find_ffmpeg()
+        # Resolved binary paths (reuse VideoProcessor's robust lookup)
+        processor = VideoProcessor()
+        self._ffmpeg = processor.ffmpeg_path
+        self._ffprobe = _resolve_ffprobe(self._ffmpeg)
 
         self._create_widgets()
 
@@ -202,7 +225,17 @@ class GifCreatorTab(ttk.Frame):
                 ]
                 result_dur = subprocess.run(cmd_dur, capture_output=True, text=True,
                                             timeout=FFMPEG_TIMEOUT_SHORT, **SUBPROCESS_FLAGS)
-                duration = float(result_dur.stdout.strip())
+                raw = result_dur.stdout.strip()
+                if not raw:
+                    raise RuntimeError(
+                        f"FFprobe lieferte keine Dauer fuer {video_path.name}. "
+                        f"Kommando: {' '.join(cmd_dur)}, stderr: {result_dur.stderr[:200]}")
+                try:
+                    duration = float(raw)
+                except ValueError:
+                    raise RuntimeError(
+                        f"FFprobe-Ausgabe nicht parsebar: '{raw}'. "
+                        f"Kommando: {' '.join(cmd_dur)}, stderr: {result_dur.stderr[:200]}")
                 width = 0
                 height = 0
 
