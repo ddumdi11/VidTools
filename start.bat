@@ -1,13 +1,13 @@
 @echo off
 REM ========================================
-REM VidScalerSubtitleAdder - Tkinter GUI Starter
+REM VidTools - Video Processing Toolbox
 REM ========================================
 
 REM Wechsle zum Projektverzeichnis (falls die .bat nicht im Projektordner liegt)
 cd /d "%~dp0"
 
 REM Zeige aktuelles Verzeichnis
-echo Starte VidScalerSubtitleAdder in: %CD%
+echo Starte VidTools in: %CD%
 
 REM Prüfe ob .venv Ordner existiert
 if not exist ".venv" (
@@ -32,10 +32,10 @@ echo Virtual Environment aktiviert: %VIRTUAL_ENV%
 echo.
 
 REM ========================================
-REM VidScalerSubtitleAdder GUI starten
+REM VidTools GUI starten
 REM ========================================
 
-echo Starte VidScalerSubtitleAdder GUI...
+echo Starte VidTools GUI...
 python vidscaler.py
 
 REM Check exit code immediately after python command

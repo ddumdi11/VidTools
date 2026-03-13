@@ -1,8 +1,8 @@
-# VidScalerSubtitleAdder - Claude Development Guide
+# VidTools - Claude Development Guide
 
 ## Projektübersicht
-GUI-Anwendung zum Skalieren von Videos mit FFmpeg unter Windows 11.
-**✅ Phase 1 implementiert:** Untertitel-Einfügung funktioniert perfekt!
+Video Processing Toolbox: GUI-Anwendung fuer Video-Skalierung, Untertitel,
+Transkription, Uebersetzung und GIF-Erstellung. Basiert auf VidScalerSubtitleAdder.
 
 ## Technische Anforderungen
 - Python 3.7+ mit tkinter (standard)
@@ -36,7 +36,7 @@ python vidscaler.py
 
 ## Projektstruktur
 ```
-VidScaler/
+VidTools/
 ├── vidscaler.py          # Haupt-GUI-Anwendung
 ├── video_processor.py    # FFmpeg-Interface
 ├── utils.py              # Hilfsfunktionen (ToolTip, etc.)

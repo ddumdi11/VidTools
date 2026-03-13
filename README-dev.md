@@ -1,6 +1,6 @@
-# VidScaler
+# VidTools - Development Notes
 
-Eine benutzerfreundliche GUI-Anwendung zum Skalieren von Videos mit FFmpeg.
+(Historische Entwicklungsnotizen, urspruenglich als "VidScaler" begonnen.)
 
 ## Überblick
 

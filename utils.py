@@ -1,5 +1,5 @@
 """
-Hilfsfunktionen für VidScaler
+Hilfsfunktionen für VidTools
 """
 
 from typing import List, Tuple

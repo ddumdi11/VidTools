@@ -1,5 +1,5 @@
 """
-Debug Logger - Comprehensive logging system for VidScaler translation pipeline
+Debug Logger - Comprehensive logging system for VidTools translation pipeline
 """
 
 import logging
@@ -14,7 +14,7 @@ class TranslationDebugLogger:
     
     def __init__(self):
         # Create log directory in temp folder
-        self.log_dir = Path(tempfile.gettempdir()) / "VidScaler_Debug"
+        self.log_dir = Path(tempfile.gettempdir()) / "VidTools_Debug"
         self.log_dir.mkdir(exist_ok=True)
         
         # Create timestamped log file
@@ -50,7 +50,7 @@ class TranslationDebugLogger:
         
         # Log initialization
         self.logger.info("="*60)
-        self.logger.info(f"VidScaler Translation Debug Log - {timestamp}")
+        self.logger.info(f"VidTools Translation Debug Log - {timestamp}")
         self.logger.info(f"Log file: {self.log_file}")
         self.logger.info("="*60)
     

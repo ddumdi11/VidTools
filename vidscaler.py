@@ -1,5 +1,8 @@
 """
-VidScaler - GUI-Anwendung zum Skalieren von Videos mit FFmpeg
+VidTools - Video Processing Toolbox
+
+GUI application for video scaling, subtitle translation, transcription,
+text extraction, and GIF creation. Based on VidScalerSubtitleAdder.
 """
 
 import tkinter as tk
@@ -19,17 +22,17 @@ TRANSLATION_METHODS = {
 }
 
 
-class VidScalerApp:
+class VidToolsApp:
     def __init__(self, root: tk.Tk):
         """
-        Initialize the VidScalerApp GUI.
+        Initialize the VidToolsApp GUI.
         
         Sets up the main Tk window (title and geometry), creates the VideoProcessor, and initializes application state
         placeholders for the currently selected video, its resolution, and any subtitle path. Builds the UI by calling
         setup_ui().
         """
         self.root = root
-        self.root.title("VidScaler - Video Skalierung")
+        self.root.title("VidTools - Video Processing Toolbox")
         self.root.geometry("600x680")
         
         self.video_processor = VideoProcessor()
@@ -728,7 +731,7 @@ class VidScalerApp:
 def main():
     """Hauptfunktion"""
     root = tk.Tk()
-    app = VidScalerApp(root)
+    app = VidToolsApp(root)
     root.mainloop()
 
 
