@@ -37,7 +37,8 @@ python vidscaler.py
 ## Projektstruktur
 ```
 VidTools/
-├── vidscaler.py          # Haupt-GUI-Anwendung
+├── vidscaler.py          # Haupt-GUI-Anwendung (ttk.Notebook mit Tabs)
+├── gif_creator.py        # GIF-Erstellung Tab (portiert von SimpleGifCreator)
 ├── video_processor.py    # FFmpeg-Interface
 ├── utils.py              # Hilfsfunktionen (ToolTip, etc.)
 ├── audio_transcriber.py  # Audio-zu-SRT Transkriptor mit Whisper

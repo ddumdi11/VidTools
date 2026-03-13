@@ -13,6 +13,7 @@ import threading
 
 from video_processor import VideoProcessor
 from utils import get_video_info, generate_scaling_options, ToolTip
+from gif_creator import GifCreatorTab
 
 # Translation method mapping for maintainability and localization
 TRANSLATION_METHODS = {
@@ -33,7 +34,7 @@ class VidToolsApp:
         """
         self.root = root
         self.root.title("VidTools - Video Processing Toolbox")
-        self.root.geometry("600x680")
+        self.root.geometry("650x720")
         
         self.video_processor = VideoProcessor()
         self.current_video_path: Optional[str] = None
@@ -41,25 +42,20 @@ class VidToolsApp:
         self.current_subtitle_path: Optional[str] = None
         
         self.setup_ui()
-        
+
     def setup_ui(self):
-        """
-        Builds the application's main tkinter user interface and initializes all widgets and their callbacks.
+        """Builds the main UI with a tabbed notebook layout."""
+        # Notebook fuer Tabs
+        self.notebook = ttk.Notebook(self.root)
+        self.notebook.grid(row=0, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
 
-        Creates sections and widgets for:
-        - video selection (file entry + browse),
-        - video info (resolution label),
-        - scaling options (width combobox),
-        - subtitles (subtitle path entry, browse, audio transcription, text excerpt),
-        - translation settings (source/target language, method, timing optimization),
-        - smart split (enable, segment length, overlap),
-        - action buttons (analyze, scale, original subtitles, translation only, dual subtitles),
-        - progress label and indeterminate progress bar.
+        # Tab 1: Video-Verarbeitung
+        main_frame = ttk.Frame(self.notebook, padding="10")
+        self.notebook.add(main_frame, text="Video-Verarbeitung")
 
-        The subtitle path variable is traced to update button states when changed.
-        """
-        main_frame = ttk.Frame(self.root, padding="10")
-        main_frame.grid(row=0, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
+        # Tab 2: GIF-Erstellung
+        self.gif_tab = GifCreatorTab(self.notebook)
+        self.notebook.add(self.gif_tab, text="GIF-Erstellung")
         
         # Video Auswahl
         ttk.Label(main_frame, text="Video auswählen:", font=("Arial", 12, "bold")).grid(
