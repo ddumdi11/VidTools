@@ -57,7 +57,9 @@ Oder einfach per Doppelklick: `start.bat`
 
 ## Verwendung
 
-### Grundlegender Workflow
+Die Anwendung besteht aus zwei Tabs: **Video-Verarbeitung** und **GIF-Erstellung**.
+
+### Tab 1: Video-Verarbeitung
 
 1. **Video auswaehlen** und **"Video analysieren"** klicken – aktuelle Aufloesung wird angezeigt
 2. Gewuenschte **Skalierung** aus dem Dropdown-Menue waehlen
@@ -72,6 +74,13 @@ Oder einfach per Doppelklick: `start.bat`
 | **Mit Original-Untertiteln** | Original-SRT im schwarzen Balken unter dem Video | `_subtitled` |
 | **Mit Uebersetzung** | Nur uebersetzte Untertitel im schwarzen Balken | `_translated` |
 | **Mit Original + Uebersetzung** | Original oben, Uebersetzung unten (Dual Mode) | `_dual_subtitled` |
+
+### Tab 2: GIF-Erstellung
+
+1. **Video laden** – Datei auswaehlen; die Analyse startet automatisch
+2. **Einstellungen** waehlen: Breite, FPS, Endlos-Loop
+3. **Trimmen**: Start- und Endzeit in Sekunden angeben
+4. **GIF erstellen** klicken – Palette-optimiertes GIF wird erstellt
 
 ### Weitere Features
 
